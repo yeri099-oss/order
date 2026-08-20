@@ -18,13 +18,19 @@
 *{box-sizing:border-box; margin:0; padding:0;}
 html,body{height:100%;}
 body{font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif; background:var(--bg); color:var(--text); font-size:15px;}
-.wrap{max-width:1180px; margin:0 auto; padding:20px 16px 60px;}
-header.top{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px;}
+.wrap{max-width:1180px; margin:0 auto; padding:20px 16px 16px; display:flex; flex-direction:column; height:100vh; height:100dvh;}
+header.top{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; flex:none;}
 header.top h1{font-size:22px; font-weight:800; letter-spacing:-0.5px;}
 header.top .count{color:var(--sub); font-size:13px; margin-left:2px;}
 .userbox{margin-left:auto; display:flex; align-items:center; gap:8px; font-size:13px; color:var(--sub);}
 .userbox button{border:none; background:none; color:var(--accent); cursor:pointer; font-size:13px; font-weight:600; padding:4px;}
-.toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px;}
+.toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; flex:none;}
+.switch{display:flex; align-items:center; gap:7px; cursor:pointer; font-size:13.5px; font-weight:700; color:var(--sub); user-select:none; padding:6px 4px;}
+.switch .track{width:38px; height:22px; border-radius:999px; background:#cfd6df; position:relative; transition:background .2s; flex:none;}
+.switch .knob{position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .2s; box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.switch.on .track{background:var(--accent);}
+.switch.on .knob{left:18px;}
+.switch.on{color:var(--accent);}
 .search{flex:1 1 220px; max-width:320px; position:relative;}
 .search input{width:100%; padding:9px 12px 9px 34px; border:1px solid var(--line); border-radius:10px; font-size:14px; background:var(--card); outline:none;}
 .search input:focus{border-color:var(--accent);}
@@ -39,19 +45,20 @@ header.top .count{color:var(--sub); font-size:13px; margin-left:2px;}
 .btn.green{background:#0f9d58; border-color:#0f9d58; color:#fff;}
 .btn.green:hover{background:#0c8a4d;}
 .spacer{flex:1;}
-.tablecard{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:auto; box-shadow:0 1px 3px rgba(16,24,40,.05);}
+.tablecard{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:auto; box-shadow:0 1px 3px rgba(16,24,40,.05); flex:1; min-height:0;}
 table{width:100%; border-collapse:collapse; min-width:820px;}
 thead th{position:sticky; top:0; background:#fafbfc; z-index:2; text-align:left; font-size:13px; color:var(--sub); font-weight:700; padding:11px 12px; border-bottom:1px solid var(--line); cursor:pointer; user-select:none; white-space:nowrap;}
 thead th:hover{color:var(--accent);}
 thead th .arrow{font-size:11px; margin-left:3px; color:var(--accent);}
 tbody td{padding:9px 12px; border-bottom:1px solid #f0f2f5; vertical-align:middle; font-size:14px;}
 tbody tr:hover{background:#f8fafc;}
-td.editable{cursor:text;}
-td.editable:hover{background:var(--accent-soft);}
+body.editmode td.editable{cursor:text;}
+body.editmode td.editable:hover{background:var(--accent-soft);}
+body.editmode .dept-tags{cursor:pointer;}
 td .cellinput{width:100%; border:1.5px solid var(--accent); border-radius:6px; padding:5px 7px; font-size:14px; font-family:inherit; outline:none;}
 td.vname{font-weight:700;}
 select.orderer{border:1px solid var(--line); border-radius:8px; padding:6px 8px; font-size:13.5px; background:#fff; cursor:pointer; font-family:inherit; max-width:110px;}
-.dept-tags{display:flex; gap:4px; flex-wrap:wrap; cursor:pointer; min-height:24px; align-items:center;}
+.dept-tags{display:flex; gap:4px; flex-wrap:wrap; cursor:default; min-height:24px; align-items:center;}
 .tag{font-size:12px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap;}
 .tag.마켓{background:var(--market-bg); color:var(--market);}
 .tag.인사동{background:var(--insa-bg); color:var(--insa);}
@@ -130,7 +137,7 @@ select.orderer{border:1px solid var(--line); border-radius:8px; padding:6px 8px;
   <div class="toolbar">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="searchInput" type="text" placeholder="거래처 검색">
+      <input id="searchInput" type="text" placeholder="거래처·품목·발주자 검색">
     </div>
     <div class="chips" id="deptChips">
       <button class="chip on" data-dept="전체">전체</button>
@@ -139,6 +146,7 @@ select.orderer{border:1px solid var(--line); border-radius:8px; padding:6px 8px;
       <button class="chip" data-dept="보자기">보자기</button>
     </div>
     <div class="spacer"></div>
+    <div class="switch" id="editToggle"><span class="track"><span class="knob"></span></span>수정모드</div>
     <button class="btn" id="staffBtn">👥 직원 관리</button>
     <button class="btn green" id="excelBtn">⬇ 엑셀 다운로드</button>
     <button class="btn primary" id="addBtn">＋ 거래처 추가</button>
@@ -234,6 +242,8 @@ let sortKey = "name", sortAsc = true;
 let deptFilter = "전체", searchQ = "";
 let loaded = false;
 let unsubs = [];
+let editMode = false;
+let popEl = null;
 
 const $ = id => document.getElementById(id);
 const tbody = $("tbody");
@@ -286,6 +296,7 @@ auth.onAuthStateChanged(user => {
   }else{
     unsubs.forEach(u=>u()); unsubs = [];
     vendors = []; staff = []; loaded = false;
+    setEditMode(false);
     $("appScreen").style.display = "none";
     $("loginScreen").style.display = "flex";
     $("loginPw").value = "";
@@ -315,7 +326,7 @@ function deptText(v){ return (v.depts||[]).slice().sort((a,b)=>(DEPT_ORDER[a]??9
 function visibleVendors(){
   let list = vendors.filter(v => {
     if (deptFilter !== "전체" && !(v.depts||[]).includes(deptFilter)) return false;
-    if (searchQ && !( (v.name||"").toLowerCase().includes(searchQ) || (v.item||"").toLowerCase().includes(searchQ) )) return false;
+    if (searchQ && !( (v.name||"").toLowerCase().includes(searchQ) || (v.item||"").toLowerCase().includes(searchQ) || (v.orderer||"").toLowerCase().includes(searchQ) )) return false;
     return true;
   });
   list.sort((a,b) => {
@@ -347,21 +358,35 @@ function render(){
     if (v.orderer && !staff.some(s=>s.name===v.orderer)) opts.push(`<option selected>${esc(v.orderer)}</option>`);
     const tags = (v.depts&&v.depts.length)
       ? v.depts.slice().sort((a,b)=>(DEPT_ORDER[a]??9)-(DEPT_ORDER[b]??9)).map(d=>`<span class="tag ${d}">${d}</span>`).join("")
-      : `<span class="tag none">선택</span>`;
+      : `<span class="tag none">${editMode ? "선택" : "-"}</span>`;
+    const ordererCell = editMode
+      ? `<select class="orderer" data-f="orderer">${opts.join("")}</select>`
+      : `<span>${esc(v.orderer) || '<span style="color:var(--sub)">-</span>'}</span>`;
     return `<tr data-id="${v.id}">
       <td class="editable vname" data-f="name">${esc(v.name)}</td>
       <td class="editable" data-f="item">${esc(v.item)}</td>
-      <td><select class="orderer" data-f="orderer">${opts.join("")}</select></td>
+      <td>${ordererCell}</td>
       <td class="editable" data-f="method">${esc(v.method)}</td>
       <td><div class="dept-tags" data-f="depts">${tags}</div></td>
       <td class="editable" data-f="note">${esc(v.note)}</td>
-      <td><button class="delbtn" title="삭제">✕</button></td>
+      <td>${editMode ? '<button class="delbtn" title="삭제">✕</button>' : ''}</td>
     </tr>`;
   }).join("");
 }
 
+/* ================= 수정모드 ================= */
+function setEditMode(on){
+  editMode = on;
+  $("editToggle").classList.toggle("on", on);
+  document.body.classList.toggle("editmode", on);
+  closeDeptPop();
+  if (loaded) render();
+}
+$("editToggle").addEventListener("click", () => setEditMode(!editMode));
+
 /* ================= 인라인 편집 ================= */
 tbody.addEventListener("click", e => {
+  if (!editMode) return;
   const td = e.target.closest("td.editable");
   if (td && !td.querySelector("input")) startEdit(td);
   const del = e.target.closest(".delbtn");
@@ -408,7 +433,6 @@ function startEdit(td){
 }
 
 /* ================= 부서 팝오버 ================= */
-let popEl = null;
 function closeDeptPop(){ if (popEl){ popEl.remove(); popEl = null; } }
 function openDeptPop(anchor){
   closeDeptPop();

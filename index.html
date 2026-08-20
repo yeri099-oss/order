@@ -8,7 +8,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
 :root{
   --bg:#f6f7f9; --card:#ffffff; --line:#e5e8ec; --text:#1c2430; --sub:#6b7684;
@@ -511,17 +511,29 @@ document.querySelectorAll(".overlay").forEach(ov => {
 });
 
 /* ================= 엑셀 다운로드 ================= */
-$("excelBtn").addEventListener("click", () => {
+$("excelBtn").addEventListener("click", async () => {
   const list = visibleVendors();
-  const rows = [["거래처","품목","발주자","발주방법","부서","비고"]];
-  list.forEach(v => rows.push([v.name||"", v.item||"", v.orderer||"", v.method||"", deptText(v), v.note||""]));
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws["!cols"] = [{wch:22},{wch:16},{wch:10},{wch:16},{wch:16},{wch:26}];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "발주리스트");
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("발주리스트");
+  ws.addRow(["거래처","품목","발주자","발주방법","부서","비고"]);
+  list.forEach(v => ws.addRow([v.name||"", v.item||"", v.orderer||"", v.method||"", deptText(v), v.note||""]));
+  [22,16,10,16,16,26].forEach((w,i) => { ws.getColumn(i+1).width = w; });
+  const head = ws.getRow(1);
+  head.eachCell(c => {
+    c.font = {bold: true};
+    c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FFE2EFDA"}};
+    c.border = {top:{style:"thin"}, bottom:{style:"thin"}, left:{style:"thin"}, right:{style:"thin"}};
+    c.alignment = {horizontal:"center", vertical:"middle"};
+  });
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
   const d = new Date();
   const fn = `발주리스트_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}${deptFilter!=="전체" ? "_"+deptFilter : ""}.xlsx`;
-  XLSX.writeFile(wb, fn);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = fn;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 });
 </script>
 </body>

@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>발주리스트</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --line:#e5e8ec; --text:#1c2430; --sub:#6b7684;
+  --accent:#2563eb; --accent-soft:#eaf1fe; --danger:#dc2626;
+  --market:#0e7490; --market-bg:#e0f4f8; --insa:#9a5b13; --insa-bg:#fdf0dc; --boja:#7c3aed; --boja-bg:#f1e9fe;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif; background:var(--bg); color:var(--text); font-size:15px;}
+.wrap{max-width:1180px; margin:0 auto; padding:20px 16px 60px;}
+header.top{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px;}
+header.top h1{font-size:22px; font-weight:800; letter-spacing:-0.5px;}
+header.top .count{color:var(--sub); font-size:13px; margin-left:2px;}
+.userbox{margin-left:auto; display:flex; align-items:center; gap:8px; font-size:13px; color:var(--sub);}
+.userbox button{border:none; background:none; color:var(--accent); cursor:pointer; font-size:13px; font-weight:600; padding:4px;}
+.toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px;}
+.search{flex:1 1 220px; max-width:320px; position:relative;}
+.search input{width:100%; padding:9px 12px 9px 34px; border:1px solid var(--line); border-radius:10px; font-size:14px; background:var(--card); outline:none;}
+.search input:focus{border-color:var(--accent);}
+.search svg{position:absolute; left:10px; top:50%; transform:translateY(-50%); width:16px; height:16px; stroke:var(--sub);}
+.chips{display:flex; gap:6px; flex-wrap:wrap;}
+.chip{padding:8px 14px; border-radius:999px; border:1px solid var(--line); background:var(--card); font-size:13.5px; cursor:pointer; color:var(--sub); font-weight:600;}
+.chip.on{background:var(--accent); border-color:var(--accent); color:#fff;}
+.btn{padding:9px 14px; border-radius:10px; border:1px solid var(--line); background:var(--card); font-size:13.5px; cursor:pointer; font-weight:600; color:var(--text); white-space:nowrap;}
+.btn:hover{background:#f0f3f7;}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+.btn.primary:hover{background:#1d4fd7;}
+.btn.green{background:#0f9d58; border-color:#0f9d58; color:#fff;}
+.btn.green:hover{background:#0c8a4d;}
+.spacer{flex:1;}
+.tablecard{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:auto; box-shadow:0 1px 3px rgba(16,24,40,.05);}
+table{width:100%; border-collapse:collapse; min-width:820px;}
+thead th{position:sticky; top:0; background:#fafbfc; z-index:2; text-align:left; font-size:13px; color:var(--sub); font-weight:700; padding:11px 12px; border-bottom:1px solid var(--line); cursor:pointer; user-select:none; white-space:nowrap;}
+thead th:hover{color:var(--accent);}
+thead th .arrow{font-size:11px; margin-left:3px; color:var(--accent);}
+tbody td{padding:9px 12px; border-bottom:1px solid #f0f2f5; vertical-align:middle; font-size:14px;}
+tbody tr:hover{background:#f8fafc;}
+td.editable{cursor:text;}
+td.editable:hover{background:var(--accent-soft);}
+td .cellinput{width:100%; border:1.5px solid var(--accent); border-radius:6px; padding:5px 7px; font-size:14px; font-family:inherit; outline:none;}
+td.vname{font-weight:700;}
+select.orderer{border:1px solid var(--line); border-radius:8px; padding:6px 8px; font-size:13.5px; background:#fff; cursor:pointer; font-family:inherit; max-width:110px;}
+.dept-tags{display:flex; gap:4px; flex-wrap:wrap; cursor:pointer; min-height:24px; align-items:center;}
+.tag{font-size:12px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap;}
+.tag.마켓{background:var(--market-bg); color:var(--market);}
+.tag.인사동{background:var(--insa-bg); color:var(--insa);}
+.tag.보자기{background:var(--boja-bg); color:var(--boja);}
+.tag.none{background:#eef1f4; color:var(--sub); font-weight:500;}
+.delbtn{border:none; background:none; color:#c3cad3; cursor:pointer; font-size:16px; padding:4px 6px; border-radius:6px; line-height:1;}
+.delbtn:hover{color:var(--danger); background:#fdecec;}
+.overlay{position:fixed; inset:0; background:rgba(15,23,42,.45); display:none; align-items:center; justify-content:center; z-index:50; padding:16px;}
+.overlay.show{display:flex;}
+.modal{background:#fff; border-radius:16px; padding:22px; width:100%; max-width:420px; max-height:85vh; overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,.2);}
+.modal h2{font-size:17px; font-weight:800; margin-bottom:16px;}
+.modal label{display:block; font-size:12.5px; font-weight:700; color:var(--sub); margin:12px 0 5px;}
+.modal input[type=text]{width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:9px; font-size:14px; outline:none; font-family:inherit;}
+.modal input[type=text]:focus{border-color:var(--accent);}
+.deptchecks{display:flex; gap:14px; padding:4px 0;}
+.deptchecks label{display:flex; align-items:center; gap:5px; font-size:14px; font-weight:600; color:var(--text); margin:0; cursor:pointer;}
+.deptchecks input{width:16px; height:16px; accent-color:var(--accent); cursor:pointer;}
+.modal .actions{display:flex; gap:8px; justify-content:flex-end; margin-top:20px;}
+.stafflist{display:flex; flex-direction:column; gap:6px; margin-top:4px;}
+.staffrow{display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#f7f8fa; border-radius:9px; font-size:14px; font-weight:600;}
+.staffrow button{border:none; background:none; color:#c3cad3; cursor:pointer; font-size:15px; padding:2px 6px; border-radius:6px;}
+.staffrow button:hover{color:var(--danger); background:#fdecec;}
+.addstaff{display:flex; gap:6px; margin-top:12px;}
+.addstaff input{flex:1; padding:9px 11px; border:1px solid var(--line); border-radius:9px; font-size:14px; outline:none; font-family:inherit;}
+.deptpop{position:absolute; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,.14); padding:12px 14px; z-index:60;}
+.deptpop label{display:flex; align-items:center; gap:7px; font-size:14px; font-weight:600; padding:5px 2px; cursor:pointer;}
+.deptpop input{width:16px; height:16px; accent-color:var(--accent);}
+.toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1c2430; color:#fff; padding:10px 18px; border-radius:999px; font-size:13.5px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:99;}
+.toast.show{opacity:.95;}
+.status{margin:40px auto; text-align:center; color:var(--sub); font-size:14px; line-height:1.7; padding:0 20px;}
+.confirmbox p{font-size:14.5px; line-height:1.55; color:var(--text);}
+/* 로그인 화면 */
+#loginScreen{position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px;}
+.logincard{background:#fff; border:1px solid var(--line); border-radius:18px; padding:34px 30px; width:100%; max-width:360px; box-shadow:0 10px 40px rgba(16,24,40,.08);}
+.logincard h1{font-size:20px; font-weight:800; text-align:center; margin-bottom:4px;}
+.logincard .sub{text-align:center; color:var(--sub); font-size:13px; margin-bottom:22px;}
+.logincard label{display:block; font-size:12.5px; font-weight:700; color:var(--sub); margin:12px 0 5px;}
+.logincard input{width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font-size:15px; outline:none; font-family:inherit;}
+.logincard input:focus{border-color:var(--accent);}
+.logincard .loginbtn{width:100%; margin-top:20px; padding:12px; border:none; border-radius:10px; background:var(--accent); color:#fff; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit;}
+.logincard .loginbtn:hover{background:#1d4fd7;}
+.logincard .loginbtn:disabled{background:#a5bdf2; cursor:default;}
+.loginerr{color:var(--danger); font-size:13px; margin-top:12px; text-align:center; min-height:18px; line-height:1.5;}
+#appScreen{display:none;}
+@media (max-width:640px){
+  .wrap{padding:12px 8px 50px;}
+  header.top h1{font-size:19px;}
+  table{min-width:760px;}
+}
+</style>
+</head>
+<body>
+
+<!-- 로그인 화면 -->
+<div id="loginScreen">
+  <div class="logincard">
+    <h1>📋 발주리스트</h1>
+    <div class="sub">업무일지 계정으로 로그인하세요</div>
+    <label>아이디</label>
+    <input type="text" id="loginId" autocomplete="username">
+    <label>비밀번호</label>
+    <input type="password" id="loginPw" autocomplete="current-password">
+    <button class="loginbtn" id="loginBtn">로그인</button>
+    <div class="loginerr" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- 앱 화면 -->
+<div id="appScreen">
+<div class="wrap">
+  <header class="top">
+    <h1>📋 거래처 발주리스트</h1>
+    <span class="count" id="countLabel"></span>
+    <div class="userbox"><span id="userLabel"></span><button id="logoutBtn">로그아웃</button></div>
+  </header>
+  <div class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="searchInput" type="text" placeholder="거래처 검색">
+    </div>
+    <div class="chips" id="deptChips">
+      <button class="chip on" data-dept="전체">전체</button>
+      <button class="chip" data-dept="마켓">마켓</button>
+      <button class="chip" data-dept="인사동">인사동</button>
+      <button class="chip" data-dept="보자기">보자기</button>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="staffBtn">👥 직원 관리</button>
+    <button class="btn green" id="excelBtn">⬇ 엑셀 다운로드</button>
+    <button class="btn primary" id="addBtn">＋ 거래처 추가</button>
+  </div>
+  <div class="tablecard">
+    <table>
+      <thead>
+        <tr>
+          <th data-key="name" style="width:17%">거래처<span class="arrow"></span></th>
+          <th data-key="item" style="width:14%">품목<span class="arrow"></span></th>
+          <th data-key="orderer" style="width:11%">발주자<span class="arrow"></span></th>
+          <th data-key="method" style="width:15%">발주방법<span class="arrow"></span></th>
+          <th data-key="depts" style="width:16%">부서<span class="arrow"></span></th>
+          <th data-key="note" style="width:22%">비고<span class="arrow"></span></th>
+          <th style="width:5%; cursor:default;"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="status" id="statusMsg">불러오는 중...</div>
+  </div>
+</div>
+</div>
+
+<!-- 거래처 추가 모달 -->
+<div class="overlay" id="addOverlay">
+  <div class="modal">
+    <h2>거래처 추가</h2>
+    <label>거래처명 *</label><input type="text" id="f_name">
+    <label>품목</label><input type="text" id="f_item">
+    <label>발주자</label><select id="f_orderer" class="orderer" style="width:100%; max-width:none; padding:9px 11px;"></select>
+    <label>발주방법</label><input type="text" id="f_method" placeholder="예: 전화, 카톡, 문자, 홈페이지">
+    <label>부서</label>
+    <div class="deptchecks">
+      <label><input type="checkbox" value="마켓">마켓</label>
+      <label><input type="checkbox" value="인사동">인사동</label>
+      <label><input type="checkbox" value="보자기">보자기</label>
+    </div>
+    <label>비고</label><input type="text" id="f_note">
+    <div class="actions">
+      <button class="btn" id="addCancel">취소</button>
+      <button class="btn primary" id="addSave">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 직원 관리 모달 -->
+<div class="overlay" id="staffOverlay">
+  <div class="modal">
+    <h2>직원(발주자) 관리</h2>
+    <div class="stafflist" id="staffList"></div>
+    <div class="addstaff">
+      <input type="text" id="staffName" placeholder="이름 입력">
+      <button class="btn primary" id="staffAdd">추가</button>
+    </div>
+    <div class="actions"><button class="btn" id="staffClose">닫기</button></div>
+  </div>
+</div>
+
+<!-- 확인 모달 -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal confirmbox">
+    <p id="confirmMsg"></p>
+    <div class="actions">
+      <button class="btn" id="confirmNo">취소</button>
+      <button class="btn" id="confirmYes" style="background:var(--danger); border-color:var(--danger); color:#fff;">삭제</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCIvN2Y1a9ByNmz4UpgdmaTFrd5SAYZZGY",
+  authDomain: "trip-84bd3.firebaseapp.com",
+  projectId: "trip-84bd3",
+  storageBucket: "trip-84bd3.firebasestorage.app",
+  messagingSenderId: "830387988854",
+  appId: "1:830387988854:web:85d1c46b3f4f374214b257"
+};
+const COL_VENDORS = "vendorApp_vendors";
+const COL_STAFF = "vendorApp_staff";
+const DEPT_ORDER = {"마켓":0,"인사동":1,"보자기":2};
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let vendors = [];
+let staff = [];
+let sortKey = "name", sortAsc = true;
+let deptFilter = "전체", searchQ = "";
+let loaded = false;
+let unsubs = [];
+
+const $ = id => document.getElementById(id);
+const tbody = $("tbody");
+
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove("show"), 1800);
+}
+function esc(s){ return (s||"").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+/* ================= 로그인 ================= */
+async function idToEmail(id){
+  if (id.includes("@")) return id;
+  const snap = await db.collection("workLogApp_login").doc(id).get();
+  if (!snap.exists) throw new Error("등록되지 않은 아이디입니다.");
+  const d = snap.data();
+  const email = d.email || Object.values(d).find(v => typeof v === "string" && v.includes("@"));
+  if (!email) throw new Error("아이디 정보에 이메일이 없습니다.");
+  return email;
+}
+async function doLogin(){
+  const id = $("loginId").value.trim();
+  const pw = $("loginPw").value;
+  if (!id || !pw){ $("loginErr").textContent = "아이디와 비밀번호를 입력해주세요."; return; }
+  $("loginBtn").disabled = true; $("loginErr").textContent = "";
+  try{
+    const email = await idToEmail(id);
+    await auth.signInWithEmailAndPassword(email, pw);
+  }catch(err){
+    let msg = "로그인에 실패했습니다.";
+    if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential" || err.code === "auth/invalid-login-credentials") msg = "비밀번호가 올바르지 않습니다.";
+    else if (err.code === "auth/user-not-found") msg = "등록되지 않은 계정입니다.";
+    else if (err.code === "auth/too-many-requests") msg = "시도가 너무 많습니다. 잠시 후 다시 시도해주세요.";
+    else if (err.message) msg = err.message;
+    $("loginErr").textContent = msg;
+  }
+  $("loginBtn").disabled = false;
+}
+$("loginBtn").addEventListener("click", doLogin);
+$("loginPw").addEventListener("keydown", e => { if (e.key==="Enter") doLogin(); });
+$("loginId").addEventListener("keydown", e => { if (e.key==="Enter") $("loginPw").focus(); });
+$("logoutBtn").addEventListener("click", () => auth.signOut());
+
+auth.onAuthStateChanged(user => {
+  if (user){
+    $("loginScreen").style.display = "none";
+    $("appScreen").style.display = "block";
+    $("userLabel").textContent = (user.email||"").split("@")[0];
+    subscribe();
+  }else{
+    unsubs.forEach(u=>u()); unsubs = [];
+    vendors = []; staff = []; loaded = false;
+    $("appScreen").style.display = "none";
+    $("loginScreen").style.display = "flex";
+    $("loginPw").value = "";
+  }
+});
+
+/* ================= 실시간 구독 ================= */
+function subscribe(){
+  unsubs.forEach(u=>u()); unsubs = [];
+  unsubs.push(db.collection(COL_VENDORS).onSnapshot(snap => {
+    vendors = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    loaded = true; render();
+  }, err => {
+    $("statusMsg").style.display = "block";
+    $("statusMsg").textContent = err.code === "permission-denied"
+      ? "이 계정은 아직 승인되지 않았거나 접근 권한이 없습니다. 관리자에게 문의하세요."
+      : "데이터 연결 오류: " + err.message;
+  }));
+  unsubs.push(db.collection(COL_STAFF).orderBy("order").onSnapshot(snap => {
+    staff = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    render(); renderStaffModal();
+  }, err => {}));
+}
+
+/* ================= 정렬/필터 ================= */
+function deptText(v){ return (v.depts||[]).slice().sort((a,b)=>(DEPT_ORDER[a]??9)-(DEPT_ORDER[b]??9)).join(","); }
+function visibleVendors(){
+  let list = vendors.filter(v => {
+    if (deptFilter !== "전체" && !(v.depts||[]).includes(deptFilter)) return false;
+    if (searchQ && !( (v.name||"").toLowerCase().includes(searchQ) || (v.item||"").toLowerCase().includes(searchQ) )) return false;
+    return true;
+  });
+  list.sort((a,b) => {
+    let x = sortKey==="depts" ? deptText(a) : (a[sortKey]||"");
+    let y = sortKey==="depts" ? deptText(b) : (b[sortKey]||"");
+    if (!x && y) return 1; if (x && !y) return -1;
+    const c = String(x).localeCompare(String(y), "ko");
+    return sortAsc ? c : -c;
+  });
+  return list;
+}
+
+/* ================= 렌더 ================= */
+function render(){
+  if (!loaded) return;
+  const list = visibleVendors();
+  $("countLabel").textContent = "총 " + list.length + "곳" + (deptFilter!=="전체" ? " (" + deptFilter + ")" : "");
+  document.querySelectorAll("thead th[data-key]").forEach(th => {
+    th.querySelector(".arrow").textContent = th.dataset.key===sortKey ? (sortAsc?"▲":"▼") : "";
+  });
+  $("statusMsg").style.display = list.length ? "none" : "block";
+  if (!list.length) $("statusMsg").innerHTML = vendors.length
+    ? "표시할 거래처가 없습니다."
+    : "등록된 거래처가 없습니다.<br>'데이터올리기.html'을 실행해 초기 거래처를 올리거나, 오른쪽 위 '거래처 추가'로 등록하세요.";
+  tbody.innerHTML = list.map(v => {
+    const opts = ['<option value="">-</option>'].concat(
+      staff.map(s => `<option value="${esc(s.name)}" ${s.name===v.orderer?"selected":""}>${esc(s.name)}</option>`)
+    );
+    if (v.orderer && !staff.some(s=>s.name===v.orderer)) opts.push(`<option selected>${esc(v.orderer)}</option>`);
+    const tags = (v.depts&&v.depts.length)
+      ? v.depts.slice().sort((a,b)=>(DEPT_ORDER[a]??9)-(DEPT_ORDER[b]??9)).map(d=>`<span class="tag ${d}">${d}</span>`).join("")
+      : `<span class="tag none">선택</span>`;
+    return `<tr data-id="${v.id}">
+      <td class="editable vname" data-f="name">${esc(v.name)}</td>
+      <td class="editable" data-f="item">${esc(v.item)}</td>
+      <td><select class="orderer" data-f="orderer">${opts.join("")}</select></td>
+      <td class="editable" data-f="method">${esc(v.method)}</td>
+      <td><div class="dept-tags" data-f="depts">${tags}</div></td>
+      <td class="editable" data-f="note">${esc(v.note)}</td>
+      <td><button class="delbtn" title="삭제">✕</button></td>
+    </tr>`;
+  }).join("");
+}
+
+/* ================= 인라인 편집 ================= */
+tbody.addEventListener("click", e => {
+  const td = e.target.closest("td.editable");
+  if (td && !td.querySelector("input")) startEdit(td);
+  const del = e.target.closest(".delbtn");
+  if (del){
+    const tr = del.closest("tr"); const v = vendors.find(x=>x.id===tr.dataset.id);
+    askConfirm(`'${v.name}' 거래처를 삭제할까요?`, () => {
+      db.collection(COL_VENDORS).doc(v.id).delete().catch(permErr); toast("삭제되었습니다");
+    });
+  }
+  const dt = e.target.closest(".dept-tags");
+  if (dt) openDeptPop(dt);
+});
+tbody.addEventListener("change", e => {
+  const sel = e.target.closest("select.orderer");
+  if (sel){
+    const id = sel.closest("tr").dataset.id;
+    db.collection(COL_VENDORS).doc(id).update({orderer: sel.value}).catch(permErr);
+  }
+});
+function permErr(err){
+  toast(err.code === "permission-denied" ? "저장 권한이 없습니다" : "저장 오류: " + err.message);
+}
+function startEdit(td){
+  const tr = td.closest("tr"); const id = tr.dataset.id; const f = td.dataset.f;
+  const v = vendors.find(x=>x.id===id); const old = v[f]||"";
+  td.innerHTML = `<input class="cellinput" value="${esc(old)}">`;
+  const inp = td.querySelector("input"); inp.focus(); inp.select();
+  let done = false;
+  const commit = save => {
+    if (done) return; done = true;
+    const val = inp.value.trim();
+    if (save && val !== old){
+      if (f==="name" && !val){ toast("거래처명은 비울 수 없습니다"); render(); return; }
+      db.collection(COL_VENDORS).doc(id).update({[f]: val}).catch(permErr);
+      v[f] = val;
+    }
+    render();
+  };
+  inp.addEventListener("keydown", ev => {
+    if (ev.key==="Enter") commit(true);
+    if (ev.key==="Escape") commit(false);
+  });
+  inp.addEventListener("blur", () => commit(true));
+}
+
+/* ================= 부서 팝오버 ================= */
+let popEl = null;
+function closeDeptPop(){ if (popEl){ popEl.remove(); popEl = null; } }
+function openDeptPop(anchor){
+  closeDeptPop();
+  const tr = anchor.closest("tr"); const id = tr.dataset.id;
+  const v = vendors.find(x=>x.id===id);
+  popEl = document.createElement("div");
+  popEl.className = "deptpop";
+  popEl.innerHTML = ["마켓","인사동","보자기"].map(d =>
+    `<label><input type="checkbox" value="${d}" ${(v.depts||[]).includes(d)?"checked":""}>${d}</label>`
+  ).join("");
+  document.body.appendChild(popEl);
+  const r = anchor.getBoundingClientRect();
+  popEl.style.left = Math.min(r.left, window.innerWidth-160) + "px";
+  popEl.style.top = (r.bottom + window.scrollY + 4) + "px";
+  popEl.addEventListener("change", () => {
+    const depts = [...popEl.querySelectorAll("input:checked")].map(i=>i.value);
+    db.collection(COL_VENDORS).doc(id).update({depts}).catch(permErr);
+  });
+  setTimeout(() => document.addEventListener("click", outsidePop), 0);
+}
+function outsidePop(e){
+  if (popEl && !popEl.contains(e.target) && !e.target.closest(".dept-tags")){
+    closeDeptPop(); document.removeEventListener("click", outsidePop);
+  }
+}
+
+/* ================= 정렬 헤더 ================= */
+document.querySelectorAll("thead th[data-key]").forEach(th => {
+  th.addEventListener("click", () => {
+    const k = th.dataset.key;
+    if (sortKey===k) sortAsc = !sortAsc; else { sortKey = k; sortAsc = true; }
+    render();
+  });
+});
+
+/* ================= 검색/필터 ================= */
+$("searchInput").addEventListener("input", e => { searchQ = e.target.value.trim().toLowerCase(); render(); });
+$("deptChips").addEventListener("click", e => {
+  const c = e.target.closest(".chip"); if (!c) return;
+  deptFilter = c.dataset.dept;
+  document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on", x===c));
+  render();
+});
+
+/* ================= 거래처 추가 ================= */
+$("addBtn").addEventListener("click", () => {
+  $("f_name").value = $("f_item").value = $("f_method").value = $("f_note").value = "";
+  $("f_orderer").innerHTML = '<option value="">-</option>' + staff.map(s=>`<option>${esc(s.name)}</option>`).join("");
+  document.querySelectorAll("#addOverlay .deptchecks input").forEach(i=>i.checked=false);
+  $("addOverlay").classList.add("show"); $("f_name").focus();
+});
+$("addCancel").addEventListener("click", () => $("addOverlay").classList.remove("show"));
+$("addSave").addEventListener("click", async () => {
+  const name = $("f_name").value.trim();
+  if (!name){ toast("거래처명을 입력해주세요"); return; }
+  const depts = [...document.querySelectorAll("#addOverlay .deptchecks input:checked")].map(i=>i.value);
+  try{
+    await db.collection(COL_VENDORS).add({
+      name, item: $("f_item").value.trim(), orderer: $("f_orderer").value,
+      method: $("f_method").value.trim(), depts, note: $("f_note").value.trim(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    $("addOverlay").classList.remove("show"); toast("'" + name + "' 추가 완료");
+  }catch(err){ permErr(err); }
+});
+
+/* ================= 직원 관리 ================= */
+function renderStaffModal(){
+  $("staffList").innerHTML = staff.map(s =>
+    `<div class="staffrow"><span>${esc(s.name)}</span><button data-id="${s.id}" data-name="${esc(s.name)}">✕</button></div>`
+  ).join("") || '<div style="color:var(--sub); font-size:13px;">등록된 직원이 없습니다.</div>';
+}
+$("staffBtn").addEventListener("click", () => { renderStaffModal(); $("staffOverlay").classList.add("show"); });
+$("staffClose").addEventListener("click", () => $("staffOverlay").classList.remove("show"));
+$("staffAdd").addEventListener("click", addStaff);
+$("staffName").addEventListener("keydown", e => { if (e.key==="Enter") addStaff(); });
+async function addStaff(){
+  const name = $("staffName").value.trim();
+  if (!name) return;
+  if (staff.some(s=>s.name===name)){ toast("이미 등록된 이름입니다"); return; }
+  try{
+    await db.collection(COL_STAFF).add({name, order: (staff.length? Math.max(...staff.map(s=>s.order??0))+1 : 0)});
+    $("staffName").value = ""; toast("'" + name + "' 추가 완료");
+  }catch(err){ permErr(err); }
+}
+$("staffList").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  askConfirm(`직원 '${b.dataset.name}'을(를) 삭제할까요?`, () => {
+    db.collection(COL_STAFF).doc(b.dataset.id).delete().catch(permErr); toast("삭제되었습니다");
+  });
+});
+
+/* ================= 확인 모달 ================= */
+let confirmCb = null;
+function askConfirm(msg, cb){ $("confirmMsg").textContent = msg; confirmCb = cb; $("confirmOverlay").classList.add("show"); }
+$("confirmNo").addEventListener("click", () => $("confirmOverlay").classList.remove("show"));
+$("confirmYes").addEventListener("click", () => { $("confirmOverlay").classList.remove("show"); if (confirmCb) confirmCb(); });
+document.querySelectorAll(".overlay").forEach(ov => {
+  ov.addEventListener("click", e => { if (e.target===ov) ov.classList.remove("show"); });
+});
+
+/* ================= 엑셀 다운로드 ================= */
+$("excelBtn").addEventListener("click", () => {
+  const list = visibleVendors();
+  const rows = [["거래처","품목","발주자","발주방법","부서","비고"]];
+  list.forEach(v => rows.push([v.name||"", v.item||"", v.orderer||"", v.method||"", deptText(v), v.note||""]));
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws["!cols"] = [{wch:22},{wch:16},{wch:10},{wch:16},{wch:16},{wch:26}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "발주리스트");
+  const d = new Date();
+  const fn = `발주리스트_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}${deptFilter!=="전체" ? "_"+deptFilter : ""}.xlsx`;
+  XLSX.writeFile(wb, fn);
+});
+</script>
+</body>
+</html>
